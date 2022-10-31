@@ -15,29 +15,6 @@ import json
 from datetime import datetime
 import pytz
 
-## TEST WITH OPEN DATA ON EV
-f = open('ev-data.json')
-evdata = json.load(f)
-
-# Normalizing data
-evdf = pd.DataFrame.from_dict(evdata["data"], orient = "columns")
-
-class EV :    
-    def batterySizeData(self, brand, model, year):
-        i = evdf.loc[(evdf["brand"] == brand) & (evdf["model"] == model) & (evdf["release_year"] == year)].index
-        return evdf.usable_battery_size[i[0]]
-    
-    def __init__(self, brand, model, year):
-        self.brand = brand
-        self.model = model
-        self.year = year
-        self.battery = self.batterySizeData(brand, model, year)
-         
-myEV1 = EV("Nissan", "Leaf", 2019)
-i = evdf.loc[(evdf["brand"] == "Nissan") & (evdf["model"] == "Leaf") & (evdf["release_year"] == 2019)].index
-evdf.usable_battery_size[i[0]]
-
-
 
 
 
@@ -46,7 +23,7 @@ evdf.usable_battery_size[i[0]]
 ## API test for QUARTER HOURLY demand dataset given by Hydro-Quebec:
 http = urllib3.PoolManager()
 r = http.request('GET', 'https://www.hydroquebec.com/data/documents-donnees/donnees-ouvertes/json/demande.json')
-dataset = json.loads(r.data.decode('utf-8'))
+dataset_demand = json.loads(r.data.decode('utf-8'))
 
 def get_recent_demand(dataset_HQ):
     return dataset_HQ["details"][dataset_HQ["indexDonneePlusRecent"]]["valeurs"]["demandeTotal"]
@@ -66,7 +43,7 @@ def get_n_last_demand(dataset_HQ, n):
 
 ## API test for HOURLY information about importations, exportations and GES 
 r = http.request('GET', "https://donnees.solutions.hydroquebec.com/donnees-ouvertes/data/json/ges-electricite.json")
-dataset = json.loads(r.data.decode('utf-8'))
+dataset_market_ges = json.loads(r.data.decode('utf-8'))
 
 # note : no easy way to find the last update in the dataset, this is a quick fix
 # but doesn't consider exceptions when changing months or years
@@ -76,25 +53,25 @@ def get_recent_market(dataset):
     if timeInQc.hour == 0 and timeInQc.minute <= 35:
         lastUpdate = f"{timeInQc.year}-{timeInQc.month}-{timeInQc.day - 1}T23:00:00"
     elif timeInQc.minute < 35:
-        lastUpdate = f"{timeInQc.year}-{timeInQc.month}-{timeInQc.day}0T{timeInQc.hour - 1 : 02}:00:00"
+        lastUpdate = f"{timeInQc.year}-{timeInQc.month}-{timeInQc.day}0T{timeInQc.hour - 1:02}:00:00"
     else: 
-        lastUpdate = f"{timeInQc.year}-{timeInQc.month}-{timeInQc.day}T{timeInQc.hour : 02}:00:00"
+        lastUpdate = f"{timeInQc.year}-{timeInQc.month}-{timeInQc.day}T{timeInQc.hour:02}:00:00"
     return [dictionary for dictionary in dataset["details"] if dictionary["date"] == lastUpdate ][0]
 
-HIGH_GES = 50000 # total des émissions directes de GES, en kilogrammes d’équivalent CO2 (kg) 
+HIGH_GES = 50000 # total des émissions directes de GES, en kilogrammes d’équivalent CO2 (kg), random number, should do research first
 # returns true if GES due to power consumption goes higher than HIGH_GES
-# could send a notification to the user if return = True
-def high_ges_alert(dataset):
+# could send a notification to the user if that's the case
+def get_ges_and_alert(dataset):
     lastMarket = get_recent_market(dataset)
-    if lastMarket["Quebec_Consommation_GES"]["total"] > HIGH_GES:
-        return True
-    else:
-        return False
+    ges = lastMarket["Quebec_Consommation_GES"]["total"] 
+    alert = ges > HIGH_GES
+    return [ges, alert]
     
+get_ges_and_alert(dataset_market_ges)
     
 ## API for bi-hourly production :
 r = http.request('GET', "https://www.hydroquebec.com/data/documents-donnees/donnees-ouvertes/json/production.json")
-dataset = json.loads(r.data.decode('utf-8'))  
+dataset_production = json.loads(r.data.decode('utf-8'))  
 
 # returns only the total energy production
 def get_recent_production_total(dataset_HQ):
@@ -116,7 +93,19 @@ def get_recent_production_sources(dataset_HQ):
 
 # API for debit rivieres :
 r = http.request('GET', "https://www.hydroquebec.com/data/documents-donnees/donnees-ouvertes/json/Donnees_VUE_CENTRALES_ET_OUVRAGES.json")
-dataset = json.loads(r.data.decode('utf-8'))    
-    
-    
-    
+dataset_debit  = json.loads(r.data.decode('utf-8'))    
+
+
+# not elegant, but gets the job done
+def get_aggregated_water_flow(dataset):
+    total_flow = 0
+    for site in dataset["Site"]:
+        for element in site["Composition"]:
+            if element["type_point_donnee"] == "Débit total":
+                total_flow += float((list(element["Donnees"].values())[-1]))
+    return total_flow
+
+get_aggregated_water_flow(dataset_debit)
+
+
+
