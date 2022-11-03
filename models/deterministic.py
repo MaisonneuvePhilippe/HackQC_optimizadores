@@ -6,7 +6,7 @@ import pyomo.environ as pyo
 # %%
 
 
-def deterministic(data):
+def deterministic_model(data):
     # fmt: off
     
     # Initialize model

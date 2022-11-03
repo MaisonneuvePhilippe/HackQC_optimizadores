@@ -3,7 +3,7 @@
 import pyomo.environ as pyo
 import numpy as np
 
-from models import deterministic
+from models import deterministic_model
 
 
 # %% Dummy data
@@ -57,7 +57,7 @@ data = (
 # %% Define model and run
 
 solver = pyo.SolverFactory("glpk")
-model = deterministic(data)
+model = deterministic_model(data)
 results = solver.solve(model)
 pyo.assert_optimal_termination(results)
 
