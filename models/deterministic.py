@@ -23,13 +23,15 @@ def deterministic_model(data):
     model.e_max = pyo.Param(initialize=e_max)
     model.p_min = pyo.Param(initialize=p_min)
     model.p_max = pyo.Param(initialize=p_max)
-    model.e = pyo.Var(model.t, within=pyo.Reals)
+    model.e_charge = pyo.Var(model.t, within=pyo.PositiveReals)
+    model.e_discharge = pyo.Var(model.t, within=pyo.PositiveReals)
     model.soc = pyo.Var(model.t, within=pyo.PositiveReals)
-    model.on_off = pyo.Var(model.t, within=pyo.Binary)
+    model.on_off_charge = pyo.Var(model.t, within=pyo.Binary)
+    model.on_off_discharge = pyo.Var(model.t, within=pyo.Binary)
     
     # Objective function: minimize costs
     def obj_rule(mdl):
-        return sum(mdl.price_discharge[t] * mdl.e[t] * mdl.on_off[t] - mdl.price_charge * mdl.e[t] * (1 - mdl.on_off[t]) for t in model.t)
+        return sum(mdl.price_discharge[t] * mdl.e_discharge[t] - mdl.price_charge * mdl.e_charge[t] for t in model.t)
     model.objective = pyo.Objective(rule=obj_rule, sense=pyo.maximize)
 
     # Define soc initial equality constraint
@@ -43,10 +45,18 @@ def deterministic_model(data):
     # Define soc equality constraint
     def soc_rule(mdl, t):
         if t > 1:
-            return mdl.soc[t] == mdl.soc[t-1] + mdl.e[t]
+            return mdl.soc[t] == mdl.soc[t-1] + mdl.e_charge[t] - mdl.e_discharge[t]
         else:
             return pyo.Constraint.Skip
     model.soc_constraint = pyo.Constraint(model.t, rule=soc_rule)
+    
+    # # Define soc equality constraint
+    # def soc_rule(mdl, t):
+    #     if t < 2:
+    #         return mdl.soc[t] == mdl.soc_init
+    #     else:
+    #         return mdl.soc[t] == mdl.soc[t-1] + mdl.e_charge[t] - mdl.e_discharge[t]
+    # model.soc_constraint = pyo.Constraint(model.t, rule=soc_rule)
     
     # Define soc lower limit
     def soc_lower_rule(mdl, t):
@@ -60,18 +70,23 @@ def deterministic_model(data):
     
     # Define power lower limit
     def power_lower_rule(mdl, t):
-        return mdl.e[t] >= mdl.p_min
+        return mdl.e_discharge[t] <= - mdl.p_min * mdl.on_off_discharge[t]
     model.power_lower_constraint = pyo.Constraint(model.t, rule=power_lower_rule)
     
     # Define power upper limit
     def power_upper_rule(mdl, t):
-        return mdl.e[t] <= mdl.p_max
+        return mdl.e_charge[t] <= mdl.p_max * mdl.on_off_charge[t]
     model.power_upper_constraint = pyo.Constraint(model.t, rule=power_upper_rule)
 
-    # Define soc upper limit
+    # # Define binary charge
+    # def binary_discharge_rule(mdl, t):
+    #     return mdl.on_off_discharge[t] <= mdl.price_discharge[t] / mdl.price_charge
+    # model.binary_discharge_constraint = pyo.Constraint(model.t, rule=binary_discharge_rule)
+    
+    # Define binary balance
     def binary_rule(mdl, t):
-        return mdl.on_off[t] >= mdl.price_discharge[t] / mdl.price_charge
-    model.binary_constraint = pyo.Constraint(model.t, rule=binary_rule)
+        return mdl.on_off_charge[t] + mdl.on_off_discharge[t] == 1
+    model.binary_balance_constraint = pyo.Constraint(model.t, rule=binary_rule)
 
     # fmt: on
     return model

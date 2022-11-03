@@ -1,1 +1,1 @@
-from deterministic import deterministic_model
+from .deterministic import deterministic_model
