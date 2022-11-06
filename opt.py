@@ -246,15 +246,3 @@ pyo.assert_optimal_termination(results)
 soc = model.soc.get_values().values()
 e_charge = model.e_charge.get_values().values()
 e_discharge = model.e_discharge.get_values().values()
-
-# %% Plot
-print(e_charge)
-plt.xticks(np.arange(0, len(soc) + 1, 4), labels=[str(i) for i in range(25)])
-plt.plot(timesteps, soc, label="SOC")
-plt.plot(timesteps, soc_min_list, label="Préférence")
-
-print(soc)
-print(soc)
-
-plt.legend()
-plt.show()
