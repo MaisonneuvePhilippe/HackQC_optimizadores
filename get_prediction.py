@@ -43,18 +43,28 @@ def interpolate_list_linear(l, n):
     return interpolated
 
 
+PRED = []
+
+
 def get_future_production(n):
     next_production = []
     now = datetime.now()
 
     next_hour = hour_rounded_up(now)
-    meteo = get_meteo(n)
+    meteo = get_meteo(n, "Montreal")
     http = urllib3.PoolManager()
     r = http.request(
         "GET",
         "https://www.hydroquebec.com/data/documents-donnees/donnees-ouvertes/json/demande.json",
     )
     dataset = json.loads(r.data.decode("utf-8"))
+
+    for i in range(64):
+        print(
+            "Historique demandes " + str(i) + ":",
+            dataset["details"][-29 - 64 + i]["valeurs"]["demandeTotal"],
+        )
+        PRED.append(dataset["details"][-29 - 64 + i]["valeurs"]["demandeTotal"])
 
     production_minus1H = dataset["details"][dataset["indexDonneePlusRecent"] - 4][
         "valeurs"
@@ -142,16 +152,15 @@ def production_to_price(production):
 
 import matplotlib.pyplot as plt
 
-prod = get_future_production(8)
+l = []
+for x in range(0, 50000):
+    l.append(
+        2.6983 * 10**-12 * x**3
+        - 7.6478 * 10**-8 * x**2
+        + 3.5189 * 10**-4 * x
+        + 6
+    )
 
+plt.plot(l)
 
-print(prod)
-prod = interpolate_list_linear(prod, 4)
-plt.plot(prod)
-plt.show()
-
-
-price = production_to_price(prod)
-print(price)
-plt.plot(price)
 plt.show()

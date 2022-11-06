@@ -45,7 +45,7 @@ def EV_charging_model(
     prob = cp.Problem(objective, constraints)
 
     # The optimal objective value is returned by `prob.solve()`.
-    result = prob.solve(solver="SCIPY")
+    result = prob.solve(solver="GUROBI")
     # The optimal value for x is stored in `x.value`.
     print(discharging.value)
     print(charging.value)
